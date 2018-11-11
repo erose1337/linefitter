@@ -5,6 +5,7 @@
 //      incorporate test for affine function into test polynomial
 mod utilities;
 
+#[derive(Debug)]
 pub struct Function {
     constant: i32,
     linear_coefficient: i32,
