@@ -1,3 +1,18 @@
+use std::fs;
+
+pub fn write_samples_to_file(filename: &str, inputs: &[i32], outputs: &[i32]) -> () {
+    let mut contents = String::new();
+    assert_eq!(inputs.len(), outputs.len());
+    for index in 0..inputs.len() {
+        contents += &format!("{} {}\n", inputs[index], outputs[index]);
+    }
+    write_to_file(filename, &contents);
+}
+
+pub fn write_to_file(filename: &str, contents: &str) -> () {
+    fs::write(filename, contents).expect(&format!("Unable to write to {}", filename));
+}
+
 pub fn compute_mean(vector: &[i32]) -> i32 {
     let mut output = 0;
     for number in vector {

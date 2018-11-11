@@ -2,7 +2,16 @@
 //  different (simpler) techniques for exponents when not using bignums
 //  test_polynomial
 //      change to use bignums
-//      incorporate test for affine function into test polynomial
+//      finish incorporating test for affine function into test polynomial
+//          - add unit tests
+
+// changes:
+//      added defaults for Function
+//      cleaned up unit tests
+//      added lazy evaluation for fit_line
+
+// known issues:
+//      no way to distinguish between the power function f(x) -> x^1 a linear function with a = 1
 mod utilities;
 
 #[derive(Debug)]
@@ -33,6 +42,13 @@ impl Function {
     }
 }
 
+impl Default for Function {
+    fn default() -> Function {
+        return Function { constant: 0, linear_coefficient: 0,
+                          error: 0, polynomial: vec![0]};
+    }
+}
+
 pub fn fit_line(input_vector: &[i32], output_vector: &[i32]) -> Function {
     let identity_function = Function{constant: 0,
                                      linear_coefficient: 1,
@@ -42,28 +58,46 @@ pub fn fit_line(input_vector: &[i32], output_vector: &[i32]) -> Function {
     let mut candidates: Vec<Function> = Vec::new();
 
     let (error, constant_term) = test_constant(&output_vector);
-    candidates.push(Function {constant: constant_term,
-                              error: error,
-                              polynomial: Vec::new(),
-                              linear_coefficient: 0});
+    let function = Function {constant: constant_term, error: error, ..Default::default()};
+    if error == 0 {
+        return function;
+    } else {
+        candidates.push(function);
+    }
 
     let (error, a) = test_linear(&input_vector, &output_vector);
-    candidates.push(Function {constant: 0,
-                              linear_coefficient: a,
-                              polynomial: Vec::new(),
-                              error: error});
+    let function = Function {linear_coefficient: a, error: error, ..Default::default()};
+    if error == 0 {
+        return function;
+    } else {
+        candidates.push(function);
+    }
 
     let (error, linear_coefficient, constant) = test_affine(&input_vector, &output_vector);
-    candidates.push(Function {constant: constant,
-                              linear_coefficient: linear_coefficient,
-                              polynomial: Vec::new(),
-                              error: error});
+    let function = Function {constant: constant, linear_coefficient: linear_coefficient,
+                             error: error, ..Default::default()};
+    if error == 0 {
+        return function;
+    } else {
+        candidates.push(function);
+    }
 
     let (error, exponent) = test_exponential(&input_vector, &output_vector);
-    candidates.push(Function {constant: 0,
-                              linear_coefficient: 0,
-                              polynomial: vec![exponent],
-                              error: error});
+    let function = Function {polynomial: vec![exponent], error: error, ..Default::default()};
+    if error == 0 {
+        return function;
+    } else {
+        candidates.push(function);
+    }
+
+    let (error, polynomial, a, b) = test_polynomial(&input_vector, &output_vector);
+    let function = Function { constant: b, linear_coefficient: a,
+                              polynomial: polynomial, error: error};
+    if error == 0 {
+        return function;
+    } else {
+        candidates.push(function);
+    }
 
     let mut best_fit: Function = identity_function;
     for function in candidates {
@@ -353,7 +387,7 @@ fn test_polynomial(input_vector: &[i32], output_vector: &[i32]) -> (i32, Vec<u32
         error = (min + max) / 2;
     }
     assert!(error != -1);
-    return (error, polynomial, linear_coefficient, constant);
+    return (error.abs(), polynomial, linear_coefficient, constant);
 }
 
 fn compute_closeness(vector1: &[i32], vector2: &[i32]) -> i32 {
@@ -368,6 +402,7 @@ fn compute_closeness(vector1: &[i32], vector2: &[i32]) -> i32 {
     if min == 0 {
         return max;
     }
+    assert!((min + max) / 2 > 0);
     return (min + max) / 2;
 }
 
@@ -486,61 +521,63 @@ mod tests {
         for test in tests {
             function.polynomial = test;
             let vector = function.evaluate_at_points(&input_vector);
-            println!("\nComputing polynomial approximation of {:?} -> {:?}", input_vector, vector);
+            //println!("\nComputing polynomial approximation of {:?} -> {:?}", input_vector, vector);
             let (error, polynomial, a, b) = test_polynomial(&input_vector, &vector);
-            println!("Best polynomial approximation of {:?} -> {:?}: {:?} with error {}", input_vector, vector, polynomial, error);
+            //println!("Best polynomial approximation of {:?} -> {:?}: {:?} with error {}", input_vector, vector, polynomial, error);
             let mut test_set: HashSet<u32> = function.polynomial.into_iter().collect();
             let found_set: HashSet<u32> = polynomial.into_iter().collect();
             test_set.remove(&0);
             assert_eq!(test_set, found_set);
+            assert_eq!(error, 0);
         }
     }
 
     #[test]
     fn test_fit_line() {
-        let input_vector: [i32; 4] = [1, 2, 3, 4];
-        {let constant_vector: Vec<i32> = vec![10, 10, 10, 10];
-        let best_fit = fit_line(&input_vector, &constant_vector);
-        assert_eq!(best_fit.constant, constant_vector[0]);
-
-        for x in 0..11 {
-            assert_eq!(best_fit.evaluate(x), 10);}
+        let input_vector: [i32; 15] = [-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7];
+        {
+            for constant in vec![0, -10, 10] {
+                let constant_function = Function { constant: constant, ..Default::default()};
+                let samples = constant_function.evaluate_at_points(&input_vector);
+                let best_fit = fit_line(&input_vector, &samples);
+                //println!("Best fit: {}, True constant: {}", best_fit.constant, constant_function.constant);
+                assert_eq!(best_fit.constant, constant_function.constant);
+            }
         }
 
-
-        {let null_vector: Vec<i32> = vec![0, 0, 0, 0];
-        let best_fit = fit_line(&input_vector, &null_vector);
-        assert_eq!(best_fit.constant, 0);
-
-        for x in 0..11 {
-            assert_eq!(best_fit.evaluate(x), 0);}
+        {
+            for linear_coefficient in vec![-10, -1, 0, 1, 10] {
+                let linear_function = Function { linear_coefficient: linear_coefficient,
+                                                ..Default::default()};
+                let samples = linear_function.evaluate_at_points(&input_vector);
+                let best_fit = fit_line(&input_vector, &samples);
+                assert_eq!(best_fit.linear_coefficient, linear_function.linear_coefficient);
+            }
         }
 
-        {let nonconstant_vector: Vec<i32> = vec![1, 2, 1, 2]; // not a function
-        let best_fit = fit_line(&input_vector, &nonconstant_vector);
-        assert_eq!(best_fit.constant, 1);
-        for x in 0..11 {
-            assert_eq!(best_fit.evaluate(x), 1);}
+        {
+            for values in vec![(0, 0), (10, 5), (10, 15), (10, 0), (10, -5),
+                               (-10, -5), (-10, -15), (-10, 0), (-10, 5)] {
+                let affine_function = Function { constant: values.1, linear_coefficient: values.0,
+                                                 ..Default::default()};
+                let samples = affine_function.evaluate_at_points(&input_vector);
+                let best_fit = fit_line(&input_vector, &samples);
+                //println!("Best fit for {:?} -> {:?} ({:?}): {:?}", input_vector, samples, affine_function, best_fit);
+                assert_eq!(best_fit.constant, affine_function.constant);
+                assert_eq!(best_fit.linear_coefficient, affine_function.linear_coefficient);
+            }
         }
 
-        let input_vector: [i32; 10] = [-30, -13, -7, -1, 0, 2, 3, 5, 7, 9];
-        let true_function: Function = Function {constant: 0, linear_coefficient: 23,
-                                                error: 0, polynomial: Vec::new()};
-        let mut output_vector: Vec<i32> = true_function.evaluate_at_points(&input_vector);
-        let best_fit = fit_line(&input_vector, &output_vector);
-        //println!("Best fit: {}x with error {} {:?}", best_fit.linear_coefficient, best_fit.error, best_fit.evaluate_at_points(&input_vector));
-        assert_eq!(best_fit.error, 0);
-
-
-        //println!("Non-noisy samples: {:?}", output_vector);
-        for index in 0..output_vector.len() {
-            output_vector[index] += (index as i32) + 1;
+        {
+            for power in vec![0, 2, 3, 4, 5] { // x^1 = x, so best_fit would be linear
+                let power_function = Function { polynomial: vec![power], ..Default::default()};
+                let samples = power_function.evaluate_at_points(&input_vector);
+                let best_fit = fit_line(&input_vector, &samples);
+                //println!("Best fit for {:?} -> {:?} ({:?}): {:?}", input_vector, samples,
+                //                                                   power_function, best_fit);
+                assert_eq!(power_function.polynomial, best_fit.polynomial);
+            }
         }
-        let best_fit = fit_line(&input_vector, &output_vector);
-        //println!("Best fit for {:?} -> {:?}: {}x with error {}", input_vector, output_vector,
-        //                                                         best_fit.linear_coefficient,
-        //                                                         best_fit.error);
-        //println!("True value: {}x", true_function.linear_coefficient);
-        //println!("Approximate re-construction: {:?}", best_fit.evaluate_at_points(&input_vector));
+
         }
 }
