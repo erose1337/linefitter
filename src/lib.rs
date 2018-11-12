@@ -5,11 +5,6 @@
 //      finish incorporating test for affine function into test polynomial
 //          - add unit tests
 
-// changes:
-//      added defaults for Function
-//      cleaned up unit tests
-//      added lazy evaluation for fit_line
-
 // known issues:
 //      no way to distinguish between the power function f(x) -> x^1 a linear function with a = 1
 mod utilities;
@@ -50,11 +45,6 @@ impl Default for Function {
 }
 
 pub fn fit_line(input_vector: &[i32], output_vector: &[i32]) -> Function {
-    let identity_function = Function{constant: 0,
-                                     linear_coefficient: 1,
-                                     polynomial: Vec::new(),
-                                     error: std::i32::MAX};
-
     let mut candidates: Vec<Function> = Vec::new();
 
     let (error, constant_term) = test_constant(&output_vector);
@@ -99,7 +89,10 @@ pub fn fit_line(input_vector: &[i32], output_vector: &[i32]) -> Function {
         candidates.push(function);
     }
 
-    let mut best_fit: Function = identity_function;
+    let mut best_fit = match candidates.pop() {
+        Some(function) => function,
+        None => unreachable!() //panic!("Empty list of candidate functions")
+    };
     for function in candidates {
         if function.error < best_fit.error {
             best_fit = function;
