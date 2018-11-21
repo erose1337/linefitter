@@ -9,15 +9,15 @@ Currently works with the following types of functions:
 - Power
 - Polynomial
     - Only with coefficients in 0, 1
+    - Currently developing support for a wider range of coefficients
 
 Example
 ----
 
     fn example() {
         let input_vector: Vec<i32> = vec![-7, -6, -5, -3, -1, 0, 2, 4, 6, 8];
-        let true_function: Function = Function { constant: 893,
-                                                 linear_coefficient: 23490,
-                                                 polynomial: Vec::new(),
+        let true_function: Function = Function { coefficients: vec![893, 23490],
+                                                 polynomial: vec![0, 1],
                                                  error: 0};
         // create samples from the line f(x) -> 23490x + 893
         let mut samples = true_function.evaluate_at_points(&input_vector);
